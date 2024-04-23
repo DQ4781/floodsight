@@ -1,7 +1,4 @@
 import requests
-import os
-from dotenv import load_dotenv
-import json
 
 
 def get_weather_data(api_key):
@@ -27,12 +24,16 @@ def get_weather_data(api_key):
     return data
 
 
-# Load in APIKEY from .env
-load_dotenv(dotenv_path="../.env")
-api_key = os.getenv("APIKEY")
+def format_weather_json(weather_data):
+    current_day = weather_data["daily"][0]
+    data = {
+        "DEWP": current_day["dew_point"],
+        "MAX": current_day["temp"]["max"],
+        "MIN": current_day["temp"]["min"],
+        "MXSPD": current_day.get("wind_gust", 0),
+        "PRCP": current_day.get("rain", 0),
+        "TEMP": (current_day["temp"]["max"] + current_day["temp"]["min"]) / 2,
+        "WDSP": current_day["wind_speed"],
+    }
 
-
-weather_data = get_weather_data(api_key)
-
-with open("niamey.json", "w") as file:
-    json.dump(weather_data, file)
+    return data
