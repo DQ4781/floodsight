@@ -1,19 +1,18 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, send_from_directory
 import torch
 import numpy as np
 from lstmarch import LSTMModel
-from sklearn.preprocessing import StandardScaler
 import joblib
 import os
 from dotenv import load_dotenv
 import mysql.connector
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path="", static_folder="static")
 
 # Load LSTM Model
 try:
     model = LSTMModel(
-        input_size=7, hidden_size=64, num_layers=1, output_size=3, dropout_rate=0.3
+        input_size=7, hidden_size=64, num_layers=1, output_size=3, dropout_rate=0
     )
     model.load_state_dict(torch.load("model/finalmodel.pth"))
     model.eval()
@@ -31,6 +30,11 @@ cursor = db.cursor()
 
 # Load in APIKEY from .env
 load_dotenv(dotenv_path=".env")
+
+
+@app.route("/")
+def index():
+    return send_from_directory("static", "index.html")
 
 
 @app.route("/predict", methods=["POST"])
@@ -52,7 +56,7 @@ def predict():
         with torch.no_grad():
             prediction = model(input_tensor)
 
-        return jsonify({"prediction": prediction.numpy().tolist()})
+        return jsonify({"prediction": np.abs(prediction.numpy()).tolist()})
     except Exception as e:
         return jsonify({"error": str(e)}), 400
     finally:
