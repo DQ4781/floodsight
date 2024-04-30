@@ -3,10 +3,10 @@ import torch
 import numpy as np
 from lstmarch import LSTMModel
 from sklearn.preprocessing import StandardScaler
-from api.openweather import get_weather_data, format_weather_json
 import joblib
 import os
 from dotenv import load_dotenv
+import mysql.connector
 
 app = Flask(__name__)
 
@@ -23,18 +23,27 @@ except Exception as e:
     raise RuntimeError(f"Model or scaler could not be loaded: {str(e)}")
 
 
+# Database Connection Setup
+db = mysql.connector.connect(
+    host="localhost", user="root", password="", database="floodsight"
+)
+cursor = db.cursor()
+
 # Load in APIKEY from .env
 load_dotenv(dotenv_path=".env")
-api_key = os.getenv("APIKEY")
 
 
 @app.route("/predict", methods=["POST"])
 def predict():
     try:
-        # Transform JSON response from Openweather API into its individual feature values
-        weather_data = get_weather_data(api_key)
-        input_features = format_weather_json(weather_data)
-        feature_array = np.array([list(input_features.values())])
+        # Retrieve last 14 days of data from the database
+        cursor.execute(
+            "SELECT dew_point, max_temp, min_temp, max_wind_speed, precipitation, avg_temp, wind_speed FROM weather_data ORDER BY date DESC LIMIT 14"
+        )
+        result = cursor.fetchall()
+
+        # Transform result into numpy array for scaling
+        feature_array = np.array(result, dtype=float)
 
         # Scale and Predict
         scaled_features = scaler.transform(feature_array)
@@ -46,6 +55,9 @@ def predict():
         return jsonify({"prediction": prediction.numpy().tolist()})
     except Exception as e:
         return jsonify({"error": str(e)}), 400
+    finally:
+        cursor.close()
+        db.close()
 
 
 if __name__ == "__main__":
